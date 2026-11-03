@@ -76,6 +76,12 @@
     <p id="statusMsg" class="status" role="status" aria-live="polite"></p>
   </form>
 
+  <section class="beleg" aria-label="Bewirtungsbeleg">
+    <button type="button" id="belegBtn" class="secondary">Bewirtungsbeleg (PDF) erstellen</button>
+    <small class="hint">Vorausgefüllt mit Termin, Ort, Gästen und Anlass. Beträge nach Erhalt der Rechnung eintragen, unterschreiben und mit dem Originalbeleg einreichen. Das PDF wird nur lokal erzeugt.</small>
+    <p id="belegStatus" class="status" role="status" aria-live="polite"></p>
+  </section>
+
   <script src="../lib/pdf-lib.min.js"></script>
   <script src="taskpane.js"></script>
   <script src="beleg.js"></script>

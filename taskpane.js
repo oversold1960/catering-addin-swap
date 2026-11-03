@@ -136,17 +136,6 @@ async function handleSubmit() {
   submitBtn.disabled = true;
   setStatus(statusEl, "Anfrage wird gesendet…", "");
 
-  // Bewirtungsbeleg (PDF) für den Empfang erzeugen und mitsenden (siehe beleg.js).
-  // Schlägt das fehl, wird die Anfrage trotzdem ohne Anhang gesendet.
-  payload.bewirtungsbeleg = null;
-  payload.bewirtungsbelegError = null;
-  try {
-    payload.bewirtungsbeleg = await buildBelegAttachment(payload.requestId);
-  } catch (belegErr) {
-    console.error(belegErr);
-    payload.bewirtungsbelegError = "PDF konnte im Add-in nicht erzeugt werden";
-  }
-
   try {
     const response = await fetch(CATERING_ENDPOINT, {
       method: "POST",

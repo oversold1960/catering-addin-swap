@@ -134,3 +134,38 @@ button.primary:disabled {
 
 .status.error { color: var(--error); }
 .status.ok { color: var(--ok); }
+
+.beleg {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+
+.beleg .hint {
+  display: block;
+  margin-top: 6px;
+  font-size: 11.5px;
+  color: var(--muted);
+}
+
+button.secondary {
+  width: 100%;
+  padding: 8px 12px;
+  background: #FFFFFF;
+  color: var(--accent);
+  border: 1px solid var(--accent);
+  border-radius: 3px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+button.secondary:hover { background: var(--bg-card); }
+
+button.secondary:disabled {
+  color: #A9A9A9;
+  border-color: #A9A9A9;
+  cursor: not-allowed;
+}
+
+.status a { color: var(--accent); }

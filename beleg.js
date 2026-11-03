@@ -1,21 +1,21 @@
 /*
  * beleg.js
  * --------
- * Erzeugt beim Absenden der Catering-Anfrage einen vorausgefüllten
- * Bewirtungsbeleg (Formularvorlage BH-H-BM0063) als PDF. Das PDF wird NICHT
- * dem Besteller angezeigt oder heruntergeladen, sondern als Base64 im JSON an
- * den Power-Automate-Flow übergeben, der es an die Mail an den Empfang anhängt.
- * Der Empfang ist für die Bewirtungsbelege allein verantwortlich.
+ * Erzeugt im Browser (Task Pane) einen vorausgefüllten Bewirtungsbeleg als PDF
+ * auf Basis der Formularvorlage BH-H-BM0063. Es werden KEINE Daten an einen
+ * Server übertragen; das PDF entsteht lokal mit pdf-lib (MIT-Lizenz,
+ * eingebunden als lib/pdf-lib.min.js, Version 1.17.1).
  *
- * Erzeugt wird mit pdf-lib (MIT-Lizenz, lokal eingebunden als
- * src/lib/pdf-lib.min.js, Version 1.17.1). Vorausgefüllt werden nur Angaben aus
- * Termin und Formular (Tag, Ort, bewirtete Personen, Anlass, Kästchen
- * „In anderen Fällen“). Beträge, Ort/Datum und Unterschrift bleiben leer.
+ * Vorausgefüllt werden nur Angaben, die aus Termin und Formular bekannt sind
+ * (Tag, Ort, bewirtete Personen, Anlass, Datum, Kästchen „In anderen Fällen“).
+ * Beträge und Unterschrift bleiben leer – die Rechnung liegt bei der Bestellung
+ * noch nicht vor.
  *
- * Abhängigkeiten: globales PDFLib, itemContext aus taskpane.js, Office.
+ * Abhängigkeiten: globales PDFLib (lib/pdf-lib.min.js), itemContext und
+ * setStatus aus taskpane.js.
  */
 
-/* global PDFLib, itemContext, Office */
+/* global PDFLib, itemContext, setStatus, Office */
 
 // ---------------------------------------------------------------------------
 // Konfiguration – an die Vorlage angepasst (Feldnamen bzw. Koordinaten).
@@ -23,12 +23,8 @@
 const BELEG_CONFIG = {
   templateUrl: "../../assets/bewirtungsbeleg-vorlage.pdf",
   fileNamePrefix: "Bewirtungsbeleg",
-  // Feld „Ort, Datum“ vorausfüllen? Standard: nein (füllt der Empfang beim
-  // Abschluss aus). Bei true: signPlace + Erstellungsdatum.
-  fillPlaceDate: false,
+  // Ort für das Feld „Ort, Datum“ (Unterschriftsort). Leer = nur Datum.
   signPlace: "",
-  // Bei Fehlern in der PDF-Erzeugung wird die Anfrage trotzdem gesendet
-  // (ohne Anhang, mit Hinweis im JSON-Feld bewirtungsbelegError).
   fontSize: 10,
   // Feldnamen der Vorlage BH-H-BM0063 (ausgelesen am 2026-11-02).
   // Bei einer neuen Formularversion hier anpassen.
@@ -49,26 +45,41 @@ const BELEG_CONFIG = {
   }
 };
 
-/**
- * Erzeugt den Bewirtungsbeleg für die Anfrage.
- * @param {string} requestId  ID der Catering-Anfrage (für den Dateinamen)
- * @returns {Promise<{fileName: string, contentType: string, contentBase64: string, personsTruncated: boolean}>}
- */
-async function buildBelegAttachment(requestId) {
-  if (typeof PDFLib === "undefined") throw new Error("pdf-lib nicht geladen");
+document.addEventListener("DOMContentLoaded", () => {
+  const btn = document.getElementById("belegBtn");
+  if (btn) btn.addEventListener("click", createBeleg);
+});
 
-  const data = collectBelegData();
-  const response = await fetch(BELEG_CONFIG.templateUrl, { cache: "no-cache" });
-  if (!response.ok) throw new Error(`Vorlage nicht abrufbar (Status ${response.status})`);
-  const templateBytes = await response.arrayBuffer();
+async function createBeleg() {
+  const statusEl = document.getElementById("belegStatus");
+  const btn = document.getElementById("belegBtn");
+  btn.disabled = true;
+  setStatus(statusEl, "Bewirtungsbeleg wird erstellt…", "");
 
-  const contentBase64 = await fillBeleg(templateBytes, data);
-  return {
-    fileName: buildFileName(data.dateIso, requestId),
-    contentType: "application/pdf",
-    contentBase64,
-    personsTruncated: Boolean(data.personsTruncated)
-  };
+  try {
+    if (typeof PDFLib === "undefined") throw new Error("pdf-lib nicht geladen");
+
+    const data = collectBelegData();
+    const response = await fetch(BELEG_CONFIG.templateUrl, { cache: "no-cache" });
+    if (!response.ok) throw new Error(`Vorlage nicht abrufbar (Status ${response.status})`);
+    const templateBytes = await response.arrayBuffer();
+
+    const pdfBytes = await fillBeleg(templateBytes, data);
+    const fileName = buildFileName(data.dateIso);
+    offerDownload(pdfBytes, fileName, statusEl);
+
+    const hints = [];
+    if (data.names.length === 0) hints.push("Namen der bewirteten Personen ergänzen");
+    if (data.personsTruncated) hints.push("nicht alle Namen passten aufs Formular – vollständige Liste beifügen");
+    hints.push("Beträge nach Erhalt der Rechnung eintragen und unterschreiben");
+    setStatus(statusEl, `PDF erstellt (${fileName}). Bitte: ${hints.join("; ")}.`, "ok");
+    appendDownloadLink(statusEl);
+  } catch (err) {
+    console.error(err);
+    setStatus(statusEl, "PDF konnte nicht erstellt werden. Bitte IT-Support kontaktieren.", "error");
+  } finally {
+    btn.disabled = false;
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -86,6 +97,7 @@ function collectBelegData() {
     .slice(0, 50);
 
   const host = Office.context.mailbox.userProfile.displayName || "";
+  const today = dateFmt.format(new Date());
   return {
     date: dateFmt.format(start),
     dateIso: toIsoDate(start),
@@ -94,9 +106,7 @@ function collectBelegData() {
     company,
     names,
     occasion: itemContext.subject && itemContext.subject !== "(ohne Betreff)" ? itemContext.subject : "",
-    placeDate: BELEG_CONFIG.fillPlaceDate
-      ? [BELEG_CONFIG.signPlace, dateFmt.format(new Date())].filter(Boolean).join(", ")
-      : ""
+    placeDate: BELEG_CONFIG.signPlace ? `${BELEG_CONFIG.signPlace}, ${today}` : today
   };
 }
 
@@ -104,10 +114,8 @@ function toIsoDate(d) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-// Dateiname nur aus Datum und Anfrage-ID (keine Personennamen im Dateinamen).
-function buildFileName(dateIso, requestId) {
-  const id = String(requestId || "").replace(/[^A-Za-z0-9-]/g, "").slice(0, 40);
-  return `${BELEG_CONFIG.fileNamePrefix}_${dateIso}${id ? "_" + id : ""}.pdf`;
+function buildFileName(dateIso) {
+  return `${BELEG_CONFIG.fileNamePrefix}_${dateIso}.pdf`;
 }
 
 // ---------------------------------------------------------------------------
@@ -159,15 +167,15 @@ async function fillBeleg(templateBytes, data) {
   data.personsTruncated = personLines.truncated;
   setLines(f.persons, personLines.lines);
   setLines(f.occasion, wrapFor(f.occasion, data.occasion));
-  if (data.placeDate) setText(f.placeDate, data.placeDate);
+  setText(f.placeDate, data.placeDate);
 
   // Catering im Haus = „In anderen Fällen“.
   form.getCheckBox(f.checkRestaurant).uncheck();
   form.getCheckBox(f.checkOther).check();
 
   form.updateFieldAppearances(font);
-  // Felder bleiben ausfüllbar, damit der Empfang Beträge später eintragen kann.
-  return pdfDoc.saveAsBase64();
+  // Felder bleiben ausfüllbar, damit Beträge später eingetragen werden können.
+  return pdfDoc.save();
 }
 
 // Bewirtete Personen: erste Zeile Gastgeber/in, danach Gäste.
@@ -271,4 +279,36 @@ function distributeLines(lines, slots) {
   const head = lines.slice(0, slots - 1);
   head.push(lines.slice(slots - 1).join(" "));
   return head;
+}
+
+// ---------------------------------------------------------------------------
+// Download anbieten
+// ---------------------------------------------------------------------------
+let lastBelegUrl = null;
+let lastBelegName = null;
+
+function offerDownload(bytes, fileName) {
+  if (lastBelegUrl) URL.revokeObjectURL(lastBelegUrl);
+  const blob = new Blob([bytes], { type: "application/pdf" });
+  lastBelegUrl = URL.createObjectURL(blob);
+  lastBelegName = fileName;
+
+  const a = document.createElement("a");
+  a.href = lastBelegUrl;
+  a.download = fileName;
+  a.rel = "noopener";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+}
+
+// Fallback-Link, falls der automatische Download vom Client blockiert wird.
+function appendDownloadLink(statusEl) {
+  if (!lastBelegUrl) return;
+  const link = document.createElement("a");
+  link.href = lastBelegUrl;
+  link.download = lastBelegName;
+  link.textContent = " PDF erneut herunterladen";
+  statusEl.appendChild(document.createElement("br"));
+  statusEl.appendChild(link);
 }
