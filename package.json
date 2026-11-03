@@ -1,0 +1,9 @@
+{
+  "name": "catering-request-function",
+  "version": "1.0.0",
+  "description": "Azure Function, die Catering-Anfragen aus dem Outlook-Add-in per Microsoft Graph an empfang@bruening-group.de weiterleitet.",
+  "main": "index.js",
+  "dependencies": {
+    "@azure/msal-node": "^2.9.2"
+  }
+}
