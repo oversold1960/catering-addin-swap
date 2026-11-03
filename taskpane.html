@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Catering bestellen</title>
+  <link rel="stylesheet" href="taskpane.css" />
+  <script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
+</head>
+<body>
+  <header class="head">
+    <img src="../../assets/icon-32.png" alt="" class="head-icon" />
+    <div>
+      <h1>Catering bestellen</h1>
+      <p class="head-sub">Anfrage geht an <strong>empfang@bruening-group.de</strong></p>
+    </div>
+  </header>
+
+  <section class="meeting-card" aria-label="Termindaten">
+    <div class="meeting-row"><span>Termin</span><strong id="mSubject">–</strong></div>
+    <div class="meeting-row"><span>Datum / Uhrzeit</span><strong id="mWhen">–</strong></div>
+    <div class="meeting-row"><span>Ort</span><strong id="mLocation">–</strong></div>
+  </section>
+
+  <form id="cateringForm" novalidate>
+
+    <label class="field">
+      <span>Anzahl Personen <em>*</em></span>
+      <input type="number" id="attendeeCount" min="1" step="1" required />
+    </label>
+
+    <label class="field">
+      <span>Art des Caterings <em>*</em></span>
+      <select id="cateringType" required>
+        <option value="" disabled selected>Bitte wählen…</option>
+        <option value="Kaffee & Gebäck">Kaffee &amp; Gebäck</option>
+        <option value="Mittagsbuffet">Mittagsbuffet</option>
+        <option value="Fingerfood">Fingerfood</option>
+        <option value="Nur Getränke">Nur Getränke</option>
+        <option value="Sonstiges">Sonstiges</option>
+      </select>
+    </label>
+
+    <label class="field">
+      <span>Gewünschte Lieferzeit <em>*</em></span>
+      <input type="time" id="deliveryTime" required />
+    </label>
+
+    <label class="field">
+      <span>Kostenstelle <em>*</em></span>
+      <input type="text" id="costCenter" placeholder="z. B. BGG o. BH o. Unit" required />
+    </label>
+
+    <label class="field">
+      <span>Zu bewirtende Firma</span>
+      <input type="text" id="guestCompany" maxlength="200" placeholder="Optional, z. B. Beispiel AG" />
+    </label>
+
+    <label class="field">
+      <span>Zu bewirtende Personen</span>
+      <textarea id="guestNames" rows="3" maxlength="1000" placeholder="Optional, ein Name pro Zeile"></textarea>
+      <small class="hint">Nur angeben, wenn für die Bewirtung erforderlich.</small>
+    </label>
+
+    <label class="field">
+      <span>Besondere Wünsche / Allergien</span>
+      <textarea id="dietaryNotes" rows="3" placeholder="z. B. 2x vegan, 1x glutenfrei"></textarea>
+    </label>
+
+    <label class="field">
+      <span>Rückruf-Telefonnummer</span>
+      <input type="tel" id="phone" placeholder="Optional" />
+    </label>
+
+    <button type="submit" id="submitBtn" class="primary">Anfrage senden</button>
+    <p id="statusMsg" class="status" role="status" aria-live="polite"></p>
+  </form>
+
+  <script src="../lib/pdf-lib.min.js"></script>
+  <script src="taskpane.js"></script>
+  <script src="beleg.js"></script>
+</body>
+</html>
